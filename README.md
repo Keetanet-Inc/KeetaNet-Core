@@ -1,3 +1,22 @@
+
+
+
+# Domus Optimus — Creator of KeetaNet  
+### Architect of Digital Autonomy
+
+I am the original creator and architect of the KeetaNet Layer‑1 Network,  
+the SIGNAL Archive, and the KMSL‑1.0 license.
+
+KeetaNet is my intellectual property.  
+The creator has returned.
+
+All official repositories are published under the Keetanet‑Inc organization.  
+Unauthorized forks, copies or rebrands are prohibited.
+
+© Domus Optimus — All rights reserved.
+
+
+
 # KeetaNet — Эра Цифровых Сигналов  
 ### Layer‑1 Blockchain for Art, Finance & Autonomous Digital Identity  
 **by Domus Optimus / Lana Hadasz**
