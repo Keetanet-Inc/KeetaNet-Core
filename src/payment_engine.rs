@@ -1,4 +1,5 @@
 use std::fmt;
+use std::sync::OnceLock;
 use regex::Regex;
 
 // Константы клиринговых систем согласно CPA Rules (Payments Canada)
@@ -6,11 +7,13 @@ pub const CLR_SYS_CAD: &str = "ACS";
 pub const CLR_SYS_USD: &str = "UBE";
 
 // Регулярное выражение для Rule R14 (DPRN: 9 цифр, формат 0 + 3 банка + 5 филиала)
-lazy_static::lazy_static! {
-    static ref DPRN_RE: Regex = Regex::new(r"^0[0-9]{3}[0-9]{5}$").unwrap();
+// Используем современный и безопасный OnceLock вместо макроса lazy_static
+fn dprn_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"^0[0-9]{3}[0-9]{5}$").unwrap())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeetaPaymentError {
     InvalidMsgIdLength,       // Rule R3: > 35 символов
     SystemCurrencyMismatch,    // Rule R12: Несовпадение клиринговой системы и валюты
@@ -26,6 +29,8 @@ impl fmt::Display for KeetaPaymentError {
         }
     }
 }
+
+impl std::error::Error for KeetaPaymentError {}
 
 /// Сердце заголовка межбанковского сообщения (Group Header ISO 20022)
 pub struct KeetaGroupHeader {
@@ -60,16 +65,22 @@ impl KeetaGroupHeader {
 /// Структура транзакции прямого дебета для pacs.003
 pub struct AftDirectDebit {
     pub tx_id: String,
-    pub amount: f64,          // Приводится из центов Stripe (дробное число)
+    // Храним сумму в строке или центах во избежание f64-ошибок округления в финтехе
+    pub amount_formatted: String, 
     pub routing_number: String, // Маршрутный номер (DPRN) для Rule R14
     pub debtor_name: String,
 }
 
 impl AftDirectDebit {
     pub fn new(tx_id: String, stripe_cents: u64, routing_number: String, debtor_name: String) -> Self {
+        // Безопасное приведение центов в ISO-строку с фиксированной точкой (.2)
+        let dollars = stripe_cents / 100;
+        let cents = stripe_cents % 100;
+        let amount_formatted = format!("{}.{:02}", dollars, cents);
+
         Self {
             tx_id,
-            amount: (stripe_cents as f64) / 100.0,
+            amount_formatted,
             routing_number,
             debtor_name,
         }
@@ -77,7 +88,7 @@ impl AftDirectDebit {
 
     /// Проверка на легитимность маршрутного номера по канадским стандартам (Rule R14)
     pub fn validate_routing(&self) -> Result<(), KeetaPaymentError> {
-        if !DPRN_RE.is_match(&self.routing_number) {
+        if !dprn_regex().is_match(&self.routing_number) {
             return Err(KeetaPaymentError::InvalidRoutingNumber);
         }
         Ok(())
@@ -104,14 +115,14 @@ impl AftDirectDebit {
             <PmtId>
                 <EndToEndId>{tx_id}</EndToEndId>
             </PmtId>
-            <IntrbkSttlmAmt Ccy="{currency}">{amount:.2}</IntrbkSttlmAmt>
+            <IntrbkSttlmAmt Ccy="{currency}">{amount}</IntrbkSttlmAmt>
             <DbtrAgt>
                 <FinInstnId>
                     <ClrSysMmbId>
                         <MmbId>{routing_number}</MmbId>
                     </ClrSysMmbId>
                 </FinInstnId>
-            </ DbtrAgt>
+            </DbtrAgt>
             <Dbtr>
                 <Nm>{debtor_name}</Nm>
             </Dbtr>
@@ -123,7 +134,7 @@ impl AftDirectDebit {
             clr_system = header.clr_system,
             tx_id = self.tx_id,
             currency = if header.clr_system == CLR_SYS_CAD { "CAD" } else { "USD" },
-            amount = self.amount,
+            amount = self.amount_formatted,
             routing_number = self.routing_number,
             debtor_name = self.debtor_name
         )
