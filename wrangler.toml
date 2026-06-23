@@ -1,11 +1,7 @@
 name = "keetanet-core"
 compatibility_date = "2026-06-20"
-
-[pages]
 pages_build_output_dir = "."
 
-# Если вы используете какие-то специфические переменные окружения для блокчейн-интеграций,
-# их можно добавить здесь позже:
-# [vars]
-# NODE_ENV = "production"
-
+[[kv_namespaces]]
+binding = "KEETANET_AUTH"
+id = "6a6ceb5229a8405db500a30da0a58fcb"
