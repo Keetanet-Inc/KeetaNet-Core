@@ -2,3 +2,6 @@ node_modules/
 *.bak
 *.backup
 **/node_modules/
+.agents/
+.claude/
+skills-lock.json
