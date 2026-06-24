@@ -6,15 +6,30 @@ export async function onRequestGet(context) {
 
   if (!customerId) {
     return Response.json(
-      { error: "missing customer" },
-      { status: 400 }
+      {
+        error: "missing customer"
+      },
+      {
+        status: 400
+      }
     );
   }
 
-  const status = await env.KEETANET_AUTH.get(customerId);
+  const data = await env.KEETANET_AUTH.get(customerId);
 
-  return Response.json({
-    customer: customerId,
-    status: status || "unknown"
-  });
+  if (!data) {
+    return Response.json({
+      customer: customerId,
+      status: "unknown"
+    });
+  }
+
+  try {
+    return Response.json(JSON.parse(data));
+  } catch {
+    return Response.json({
+      customer: customerId,
+      status: data
+    });
+  }
 }

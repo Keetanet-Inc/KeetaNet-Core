@@ -12,22 +12,46 @@ export async function onRequestPost(context) {
     }
 
     if (eventType === "invoice.paid") {
-      await env.KEETANET_AUTH.put(customerId, "active");
-      return Response.json({ status: "activated" });
+      await env.KEETANET_AUTH.put(
+        customerId,
+        JSON.stringify({
+          customer: customerId,
+          status: "active",
+          plan: "pro",
+          updated_at: new Date().toISOString()
+        })
+      );
+
+      return Response.json({
+        status: "activated",
+        customer: customerId
+      });
     }
 
     if (
       eventType === "invoice.payment_failed" ||
       eventType === "invoice.voided"
     ) {
-      await env.KEETANET_AUTH.put(customerId, "blocked");
-      return Response.json({ status: "blocked" });
+      await env.KEETANET_AUTH.put(
+        customerId,
+        JSON.stringify({
+          customer: customerId,
+          status: "blocked",
+          updated_at: new Date().toISOString()
+        })
+      );
+
+      return Response.json({
+        status: "blocked",
+        customer: customerId
+      });
     }
 
     return Response.json({
       received: true,
       event: eventType
     });
+
   } catch (err) {
     return new Response(
       `Webhook Error: ${err.message}`,
