@@ -6,12 +6,8 @@ export async function onRequestGet(context) {
 
   if (!customerId) {
     return Response.json(
-      {
-        error: "missing customer"
-      },
-      {
-        status: 400
-      }
+      { error: "missing customer" },
+      { status: 400 }
     );
   }
 
@@ -25,7 +21,17 @@ export async function onRequestGet(context) {
   }
 
   try {
-    return Response.json(JSON.parse(data));
+    const license = JSON.parse(data);
+
+    if (
+      license.expires_at &&
+      new Date(license.expires_at) < new Date()
+    ) {
+      license.status = "expired";
+    }
+
+    return Response.json(license);
+
   } catch {
     return Response.json({
       customer: customerId,
