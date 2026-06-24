@@ -1,71 +1,123 @@
+
+import Stripe from "stripe";
+
 export async function onRequestPost(context) {
-  const { request, env } = context;
+const { request, env } = context;
 
-  try {
-    const body = await request.json();
+const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
-    const eventType = body.type;
-    const customerId = body?.data?.object?.customer;
+try {
+const signature = request.headers.get("stripe-signature");
 
-    if (!customerId) {
-      return new Response("No customer found", { status: 400 });
-    }
+if (!signature) {
+  return new Response(
+    "Missing Stripe signature",
+    { status: 401 }
+  );
+}
 
-    if (eventType === "invoice.paid") {
-      await env.KEETANET_AUTH.put(
-        customerId,
-        JSON.stringify({
-          customer: customerId,
-          status: "active",
-          plan: "pro",
+const payload = await request.text();
 
-          limits: {
-            nodes: 10,
-            requests_per_day: 50000
-          },
+let event;
 
-          expires_at: new Date(
-            Date.now() + 365 * 24 * 60 * 60 * 1000
-          ).toISOString(),
+try {
+  event = await stripe.webhooks.constructEventAsync(
+    payload,
+    signature,
+    env.STRIPE_WEBHOOK_SECRET
+  );
+} catch (err) {
+  return new Response(
+    `Invalid signature: ${err.message}`,
+    { status: 401 }
+  );
+}
 
-          updated_at: new Date().toISOString()
-        })
-      );
+const customerId =
+  event?.data?.object?.customer;
 
-      return Response.json({
-        status: "activated",
-        customer: customerId
-      });
-    }
+console.log(
+  "WEBHOOK",
+  event.type,
+  customerId
+);
 
-    if (
-      eventType === "invoice.payment_failed" ||
-      eventType === "invoice.voided"
-    ) {
-      await env.KEETANET_AUTH.put(
-        customerId,
-        JSON.stringify({
-          customer: customerId,
-          status: "blocked",
-          updated_at: new Date().toISOString()
-        })
-      );
+if (!customerId) {
+  return new Response(
+    "No customer found",
+    { status: 400 }
+  );
+}
 
-      return Response.json({
-        status: "blocked",
-        customer: customerId
-      });
-    }
+switch (event.type) {
+  case "invoice.paid":
+  case "checkout.session.completed":
+    await env.KEETANET_AUTH.put(
+      customerId,
+      JSON.stringify({
+        customer: customerId,
+        status: "active",
+        plan: "pro",
+
+        limits: {
+          nodes: 10,
+          requests_per_day: 50000
+        },
+
+        expires_at: new Date(
+          Date.now() +
+          365 * 24 * 60 * 60 * 1000
+        ).toISOString(),
+
+        updated_at: new Date().toISOString()
+      })
+    );
+
+    console.log(
+      "LICENSE_ACTIVATED",
+      customerId
+    );
 
     return Response.json({
-      received: true,
-      event: eventType
+      status: "activated",
+      customer: customerId
     });
 
-  } catch (err) {
-    return new Response(
-      `Webhook Error: ${err.message}`,
-      { status: 400 }
+  case "invoice.payment_failed":
+  case "customer.subscription.deleted":
+    await env.KEETANET_AUTH.put(
+      customerId,
+      JSON.stringify({
+        customer: customerId,
+        status: "blocked",
+        updated_at: new Date().toISOString()
+      })
     );
-  }
+
+    console.log(
+      "LICENSE_BLOCKED",
+      customerId
+    );
+
+    return Response.json({
+      status: "blocked",
+      customer: customerId
+    });
+
+  default:
+    return Response.json({
+      received: true,
+      event: event.type
+    });
+}
+
+} catch (err) {
+console.error(err);
+
+return new Response(
+  `Webhook Error: ${err.message}`,
+  { status: 400 }
+);
+
+}
 }
