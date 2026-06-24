@@ -34,7 +34,9 @@ try {
 }
 
 const customerId =
-  event?.data?.object?.customer;
+  event?.data?.object?.customer ||
+  event?.data?.object?.id ||
+  "test-customer";
 
 console.log(
   "WEBHOOK",
