@@ -55,6 +55,31 @@ switch (event.type) {
 case "invoice.paid":
 case "checkout.session.completed":
 case "invoice.payment_succeeded":
+switch (event.type) {
+
+  case "invoice.paid":
+  case "invoice.payment_succeeded":
+  case "invoice_payment.paid":
+  case "checkout.session.completed":
+
+    await env.KEETANET_AUTH.put(
+      customerId,
+      JSON.stringify({
+        customer: customerId,
+        status: "active",
+        plan: "pro",
+        updated_at: new Date().toISOString()
+      })
+    );
+
+    return Response.json({
+      status: "activated",
+      customer: customerId
+    });
+
+  // ...
+}
+
 
     await env.KEETANET_AUTH.put(
       customerId,
