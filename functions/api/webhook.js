@@ -50,8 +50,10 @@ if (!customerId) {
 }
 
 switch (event.type) {
-  case "invoice.paid":
-  case "checkout.session.completed":
+case "invoice.paid":
+case "invoice.payment_succeeded":
+case "checkout.session.completed":
+
     await env.KEETANET_AUTH.put(
       customerId,
       JSON.stringify({
