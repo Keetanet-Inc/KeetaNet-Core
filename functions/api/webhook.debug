@@ -1,0 +1,9 @@
+export async function onRequestPost(context) {
+  const { env } = context;
+
+  return Response.json({
+    hasSecret: !!env.STRIPE_WEBHOOK_SECRET,
+    secretLength: env.STRIPE_WEBHOOK_SECRET?.length || 0,
+    hasKV: !!env.KEETANET_AUTH
+  });
+}
